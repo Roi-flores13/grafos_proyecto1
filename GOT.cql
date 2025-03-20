@@ -21,20 +21,24 @@ SET r.weight = row[2]
 
 ////////// EDA
 
-// 1. Contar nodos
+// 1. Cuantos nodos totales hay?
 MATCH (n:Personaje)
 RETURN COUNT(n) AS Total_Nodos
 
-// 2. Esquema general del grafo
-CALL db.schema.visualization
+// 2. Cuantas relaciones hay?
+MATCH (n)-[r]->(n2)
+RETURN COUNT(DISTINCT(r))
 
-// 3. Tipos de nodos y sus propiedades
-CALL db.schema.nodeTypeProperties
-
-// 4. Tipos de relaciones y sus propiedades
+// 3. Tipos de relaciones y sus propiedades
 CALL db.schema.relTypeProperties
 
-// 5. Calcular el diametro del grafo
+// 3. Esquema general del grafo
+CALL db.schema.visualization
+
+// 4. Tipos de nodos y sus propiedades
+CALL db.schema.nodeTypeProperties
+
+// 6. Calcular el diametro del grafo
 // Crear un subgrafo
 CALL gds.graph.project("diam",
                         "Personaje", 
@@ -53,4 +57,14 @@ RETURN length(path) AS diametro
 ORDER BY diametro DESC
 LIMIT 1
 
-// 6. 
+// 7. Densidad del grafo
+MATCH (n:Personaje) 
+WITH count(n) AS N
+MATCH ()-[r]->() 
+WITH N, count(r) AS E
+RETURN toFloat(E) / (N * (N - 1)) AS density
+
+// 8. Relaciones bidireccionales, Fueron 0
+MATCH (a)-[r1]->(b)
+MATCH (b)-[r2]->(a) 
+RETURN COUNT(*) AS cantidad_bidireccional
