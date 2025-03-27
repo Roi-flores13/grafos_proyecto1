@@ -21,22 +21,22 @@ SET r.weight = row[2]
 
 ////////// EDA
 
-// 1. Cuantos nodos totales hay?
+// 1. ¿Cuantos nodos totales hay?
 MATCH (n:Personaje)
 RETURN COUNT(n) AS Total_Nodos
 
-// 2. Cuantas relaciones hay?
+// 2. ¿Cuantas relaciones hay?
 MATCH (n)-[r]->(n2)
 RETURN COUNT(DISTINCT(r))
-
-// 3. Tipos de relaciones y sus propiedades
-CALL db.schema.relTypeProperties
 
 // 3. Esquema general del grafo
 CALL db.schema.visualization
 
 // 4. Tipos de nodos y sus propiedades
 CALL db.schema.nodeTypeProperties
+
+// 5. Tipos de relaciones y sus propiedades
+CALL db.schema.relTypeProperties
 
 // 6. Calcular el diametro del grafo
 // Crear un subgrafo
@@ -68,3 +68,32 @@ RETURN toFloat(E) / (N * (N - 1)) AS density
 MATCH (a)-[r1]->(b)
 MATCH (b)-[r2]->(a) 
 RETURN COUNT(*) AS cantidad_bidireccional
+
+// 9. ¿Cuantas relaciones hay por cada peso distinto?
+MATCH(n:Personaje)-[r:CONNECTED_TO]->(n2:Personaje)
+SET r.weight = toInteger(r.weight)
+RETURN DISTINCT(r.weight) AS Peso, COUNT(r) AS Cantidad_Relaciones
+ORDER BY Peso 
+
+// 10. ¿Que relacion tiene mayor peso y quienes participan en ella?
+MATCH(n:Personaje)-[r:CONNECTED_TO]->(n2:Personaje)
+RETURN n.Label AS Name, n2.Label AS Target, r.weight AS Peso
+ORDER BY Peso DESC
+LIMIT 1
+
+// 11. ¿Cuántos nodos sin relaciones existen? 
+MATCH (n:Personaje)
+WHERE NOT (n)-->() 
+RETURN COUNT(n) AS Nodos_sin_relaciones
+
+// 12. ¿Cuántas relaciones entre uno y dos saltos tiene el personaje que aparece en la mayor relación con weight (Jon)? MATCH (p:Personaje{Label:'Jon'})-[*1..2]-(m)
+MATCH (p:Personaje{Label:'Jon'})-[*1..2]-(m)
+RETURN COUNT (DISTINCT m) AS NodosAlcanzables;
+
+// 13. ¿Cuántos nodos tienen relaciones entrantes y salientes? 
+MATCH (n:Personaje)
+WHERE (n)-->() AND ()-->(n)
+RETURN COUNT(n)
+
+// 14. 
+// 15. 
