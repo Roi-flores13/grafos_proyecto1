@@ -68,3 +68,56 @@ RETURN toFloat(E) / (N * (N - 1)) AS density
 MATCH (a)-[r1]->(b)
 MATCH (b)-[r2]->(a) 
 RETURN COUNT(*) AS cantidad_bidireccional
+
+
+// Preguntas de comunidad
+// 1. ¿Se mantienen las casas en las comunidades de Louvain?
+//Creación del subgrafo
+CALL gds.graph.project(
+    'myGraphWeighted',
+    'Personaje',
+    {CONNECTED_TO:{properties:'Weight'}}
+); 
+
+//Aplicamos Louvain
+CALL gds.louvain.write('myGraphWeighted', {writeProperty: 'louvainWeighted'})
+YIELD communityCount, modularity, modularities
+
+// ¿Cómo cambian las comunidades si no especificamos el peso en Louvain?
+//Subgrafo
+CALL gds.graph.project(
+    'myGraphUnweighted',
+    'Personaje',
+    'CONNECTED_TO'
+); 
+
+//Propiedad
+CALL gds.louvain.write('myGraphUnweighted', {writeProperty: 'louvainUnweighted'})
+YIELD communityCount, modularity, modularities
+//2. ¿Hay comunidades dependiendo de la ubicación geográfica? 
+
+//3. ¿Qué subcomunidades existen dentro de las casas? 
+
+//4. ¿Se pueden detectar personajes que estén realizando alguna conspiración o traición? 
+
+//5. ¿Qué personajes sirven como puente entre las casas? 
+
+//6. ¿Cómo afecta la muerte de Robb Stark a las comunidades? 
+
+//7. ¿Cuáles son las comunidades conectadas más fuertemente? 
+
+//8. ¿Cuál comunidad existe sin conexiones muy fuertes? 
+
+//9. ¿Cuál es la relación entre casas con mejor conexión? 
+
+//10. ¿Como cambian las comunidades después de la boda roja? 
+
+//11. ¿Hay triángulos en la comunidad? 
+
+//12. ¿Cuántos triángulos hay al iniciar la temporada? 
+
+//13. ¿Cuál es personaje con más relaciones triangulares de la temporada 3? 
+
+//14. ¿Cómo se agrupan las comunidades con labelPropagation sin una semilla? 
+
+//15. ¿Cómo se ven las comunidades del labelPropagation después de usar a “Jon Snow” como semilla? 
