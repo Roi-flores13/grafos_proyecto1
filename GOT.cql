@@ -94,6 +94,7 @@ CALL gds.graph.project(
 //Propiedad
 CALL gds.louvain.write('myGraphUnweighted', {writeProperty: 'louvainUnweighted'})
 YIELD communityCount, modularity, modularities
+
 //2. ¿Hay comunidades dependiendo de la ubicación geográfica? 
 
 //3. ¿Qué subcomunidades existen dentro de las casas? 
