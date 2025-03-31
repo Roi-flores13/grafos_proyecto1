@@ -95,8 +95,12 @@ MATCH (n:Personaje)
 WHERE (n)-->() AND ()-->(n)
 RETURN COUNT(n)
 
-// 14. 
-// 15. 
+// 14. ¿Cual es el promedio del weight?
+MATCH ()-[r]->()
+RETURN AVG(r.weight) AS Promedio_Weight
+
+// 15. ¿Cuales son los indices?
+SHOW INDEXES
 
 //Preguntas de centralidad
 
