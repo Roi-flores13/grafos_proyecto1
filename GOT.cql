@@ -17,7 +17,7 @@ LOAD CSV FROM 'file:///got-s3-edges.csv' AS row
 MATCH (n:Personaje), (m:Personaje)
 WHERE n.Id=row[0] AND m.Id=row[1]
 MERGE (n)-[r:CONNECTED_TO]->(m)
-SET r.weight = row[2]
+SET r.weight = toInteger(row[2])
 
 ////////// EDA
 
@@ -76,14 +76,14 @@ RETURN COUNT(*) AS cantidad_bidireccional
 CALL gds.graph.project(
     'myGraphWeighted',
     'Personaje',
-    {CONNECTED_TO:{properties:'Weight'}}
+    {CONNECTED_TO:{properties:'weight'}}
 ); 
 
 //Aplicamos Louvain
 CALL gds.louvain.write('myGraphWeighted', {writeProperty: 'louvainWeighted'})
 YIELD communityCount, modularity, modularities
 
-// ¿Cómo cambian las comunidades si no especificamos el peso en Louvain?
+// 2. ¿Cómo cambian las comunidades si no especificamos el peso en Louvain?
 //Subgrafo
 CALL gds.graph.project(
     'myGraphUnweighted',
@@ -95,30 +95,111 @@ CALL gds.graph.project(
 CALL gds.louvain.write('myGraphUnweighted', {writeProperty: 'louvainUnweighted'})
 YIELD communityCount, modularity, modularities
 
-//2. ¿Hay comunidades dependiendo de la ubicación geográfica? 
+//3. ¿Hay comunidades dependiendo de la ubicación geográfica? 
+MATCH(n)
+RETURN n.louvainWeighted, collect(n.Label)
 
-//3. ¿Qué subcomunidades existen dentro de las casas? 
+//4. ¿Qué nos dicen las comunidades intermedias de Louvain? 
+CALL gds.louvain.stream('myGraphWeighted', { includeIntermediateCommunities: true })
+YIELD nodeId, communityId, intermediateCommunityIds
+RETURN gds.util.asNode(nodeId).Label AS name, communityId, intermediateCommunityIds
+ORDER BY name ASC
 
-//4. ¿Se pueden detectar personajes que estén realizando alguna conspiración o traición? 
+//5. ¿Se pueden detectar personajes que estén realizando alguna conspiración o traición? 
+CALL gds.scc.write('myGraphWeighted', {writeProperty:'communitySCC'})
+YIELD componentCount, componentDistribution
 
-//5. ¿Qué personajes sirven como puente entre las casas? 
+MATCH(n)
+RETURN n.communitySCC, COUNT(n), COLLECT(n.Label)
 
-//6. ¿Cómo afecta la muerte de Robb Stark a las comunidades? 
+//Probamos si hay ciclos:
+MATCH (n)-[*]->(n) RETURN COUNT(n);
 
-//7. ¿Cuáles son las comunidades conectadas más fuertemente? 
+//6. ¿Cuáles son las comunidades conectadas más fuertemente? 
+MATCH(n)
+RETURN n.communitySCC, COUNT(n), collect(n.Label)
 
-//8. ¿Cuál comunidad existe sin conexiones muy fuertes? 
+//7. ¿Cuál comunidad existe sin conexiones muy fuertes? 
+CALL gds.graph.project(
+    'myUndirectedGraph',
+    'Personaje',
+    {CONNECTED_TO: {orientation:'UNDIRECTED', Properties:'weight'}}
+)
 
-//9. ¿Cuál es la relación entre casas con mejor conexión? 
+CALL gds.wcc.write('myUndirectedGraph', {writeProperty:'communityWCC'})
+YIELD componentCount, componentDistribution
 
-//10. ¿Como cambian las comunidades después de la boda roja? 
+// 8 y 9.	¿Cuántos colores son necesarios con el k1Coloring?, ¿Cómo se ve el grafo después del k1Color?
+CALL gds.k1coloring.write('myUndirectedGraph', {writeProperty: 'k1color'})
+YIELD nodeCount, colorCount, ranIterations, didConverge
 
-//11. ¿Hay triángulos en la comunidad? 
+//10. ¿Cuántos triángulos hay al iniciar la temporada?  
+CALL gds.graph.project(
+    'myUndirectedGraph',
+    'Personaje',
+    {CONNECTED_TO: {orientation:'UNDIRECTED', Properties:'weight'}}
+)
 
-//12. ¿Cuántos triángulos hay al iniciar la temporada? 
+CALL gds.triangleCount.write('myUndirectedGraph', {writeProperty: 'triangles'})
+YIELD globalTriangleCount, nodeCount
 
-//13. ¿Cuál es personaje con más relaciones triangulares de la temporada 3? 
+MATCH(p:Personaje)
+SET p.triangles = p.triangles + 1
+RETURN p.triangles, count(p.Label), collect(p.Label)
+ORDER BY COUNT(p.Label) DESC
 
-//14. ¿Cómo se agrupan las comunidades con labelPropagation sin una semilla? 
 
-//15. ¿Cómo se ven las comunidades del labelPropagation después de usar a “Jon Snow” como semilla? 
+//11. ¿Cuál es personaje con más relaciones triangulares de la temporada 3? 
+MATCH(n)
+RETURN n.Label AS name, n.triangles
+ORDER BY n.triangles DESC, name ASC
+LIMIT 1
+
+//12. ¿Cómo se agrupan las comunidades con labelPropagation sin una semilla? 
+CALL gds.labelPropagation.write('myGraphWeighted', {writeProperty:'labelPropagation'})
+YIELD communityCount, ranIterations, didConverge;
+
+//13. ¿Cómo se ven las comunidades del labelPropagation después de usar a “Jon Snow” como semilla? 
+MATCH(p:Personaje)
+WHERE p.Label = 'Jon'
+SET p.comunidadInicial = p.labelPropagation
+
+CALL gds.graph.project(
+    'myAlterGraph',
+    'Personaje',
+    {CONNECTED_TO: {orientation:'UNDIRECTED'}},
+    {nodeProperties:['comunidadInicial']}
+)
+
+CALL gds.labelPropagation.write('myAlterGraph', {
+    seedProperty:'comunidadInicial',
+    writeProperty:'labelPropagationSeeded'
+    })
+YIELD communityCount, ranIterations, didConverge;
+
+//14. ¿Cómo afecta la muerte de Robb Stark a las comunidades? 
+MATCH(r:Personaje{Label:'Robb'})
+DETACH DELETE p;
+
+CALL gds.graph.project(
+    'myGraphWeightedwoRobb',
+    'Personaje',
+    {CONNECTED_TO:{properties:'weight'}}
+); 
+
+CALL gds.labelPropagation.write('myGraphWeightedwoRobb', {writeProperty:'labelPropagation'})
+YIELD communityCount, ranIterations, didConverge;
+
+//15. ¿Como cambian las comunidades después de la boda roja? 
+MATCH (p:Personaje)
+WHERE p.Label IN ['Catelyn', 'Talisa', 'Aegon']
+DETACH DELETE p;
+
+CALL gds.graph.project(
+    'myGraphWeightedRedWed',
+    'Personaje',
+    {CONNECTED_TO:{properties:'weight'}}
+); 
+
+CALL gds.labelPropagation.write('myGraphWeightedRedWed', {writeProperty:'labelPropagationRedWed'})
+YIELD communityCount, ranIterations, didConverge;
